@@ -1,0 +1,399 @@
+{
+  "enabled": {
+    "description": "启用心情引擎",
+    "type": "bool",
+    "default": false,
+    "hint": "关掉时完全不订阅事件、不写任何文件，prompt 与未安装时逐字一致。"
+  },
+  "display": {
+    "description": "面板显示",
+    "type": "bool",
+    "default": true,
+    "hint": "关闭后插件页面仍可访问，但不再提供显示模式提示。"
+  },
+  "baseline": {
+    "description": "六维基线",
+    "type": "int",
+    "default": 55,
+    "slider": {
+      "min": 0,
+      "max": 100,
+      "step": 1
+    },
+    "hint": "所有维度都会随时间回落到这个值。"
+  },
+  "high_precision": {
+    "description": "高精度情绪判定",
+    "type": "bool",
+    "default": false,
+    "hint": "可疑句子（反讽、引号、正负词并存）额外调一次模型判定，会有额外 token 开销。"
+  },
+  "react_to_tools": {
+    "description": "工具报错 / 上下文水位影响心情",
+    "type": "bool",
+    "default": false,
+    "hint": "关掉后：工具报错和连击不涨压力，工具成功也不降压力，上下文满了不再触发 ctx_pressure。建议保持关闭——机器的事不该让她闹情绪。"
+  },
+  "hard_temperature": {
+    "description": "情绪硬干预",
+    "type": "bool",
+    "default": false,
+    "hint": "原版会改采样温度；AstrBot 的 OpenAI 兼容接口不支持逐请求温度，这里是降级实现（只注入低落时的短句约束）。"
+  },
+  "smoothing": {
+    "description": "平滑与上限",
+    "type": "object",
+    "items": {
+      "max_step": {
+        "description": "单事件单维上限",
+        "type": "int",
+        "default": 20,
+        "slider": {
+          "min": 1,
+          "max": 50,
+          "step": 1
+        }
+      },
+      "ignore_below": {
+        "description": "丢弃阈值",
+        "type": "int",
+        "default": 2,
+        "slider": {
+          "min": 0,
+          "max": 10,
+          "step": 1
+        },
+        "hint": "单次生效变化小于该值时不入账。"
+      },
+      "per_turn_dim_cap": {
+        "description": "单轮单维总上限",
+        "type": "int",
+        "default": 60,
+        "slider": {
+          "min": 10,
+          "max": 100,
+          "step": 1
+        }
+      },
+      "tool_ok_cap": {
+        "description": "每轮工具成功最多计几次",
+        "type": "int",
+        "default": 3,
+        "slider": {
+          "min": 0,
+          "max": 10,
+          "step": 1
+        }
+      },
+      "daily_cap_per_source": {
+        "description": "单来源每日上限",
+        "type": "int",
+        "default": 6,
+        "slider": {
+          "min": 0,
+          "max": 30,
+          "step": 1
+        }
+      },
+      "pull_to_baseline": {
+        "description": "每轮回正比例",
+        "type": "float",
+        "default": 0.02,
+        "hint": "每轮把所有维度向基线拉近这个比例（0=不回正）。0.02 约 35 轮走完一半。"
+      },
+      "headroom_scale": {
+        "description": "边际递减",
+        "type": "bool",
+        "default": true,
+        "hint": "越接近 100 或 0，同样的加成就越小，避免状态顶到天花板。"
+      }
+    }
+  },
+  "decay": {
+    "description": "衰减",
+    "type": "object",
+    "items": {
+      "default_half_life_hours": {
+        "description": "普通维度半衰期（小时）",
+        "type": "int",
+        "default": 6,
+        "slider": {
+          "min": 1,
+          "max": 48,
+          "step": 1
+        }
+      },
+      "stress_half_life_minutes": {
+        "description": "压力半衰期（分钟）",
+        "type": "int",
+        "default": 45,
+        "slider": {
+          "min": 5,
+          "max": 180,
+          "step": 5
+        }
+      }
+    }
+  },
+  "injection": {
+    "description": "语气注入",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "每轮注入语气提示",
+        "type": "bool",
+        "default": true
+      },
+      "max_lines": {
+        "description": "提示行数上限",
+        "type": "int",
+        "default": 3,
+        "slider": {
+          "min": 1,
+          "max": 4,
+          "step": 1
+        },
+        "hint": "原版硬上限 4 行（低落硬指令会占第 4 行）。"
+      }
+    }
+  },
+  "rhythm": {
+    "description": "节奏提示",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "追加一句句长/语气约束",
+        "type": "bool",
+        "default": false
+      }
+    }
+  },
+  "diary": {
+    "description": "每日日记",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "自动写日记",
+        "type": "bool",
+        "default": true
+      },
+      "time": {
+        "description": "每天写日记的时间",
+        "type": "string",
+        "default": "22:00",
+        "hint": "格式 HH:MM。每天只能改一次，且今天已写或已过点则不允许改。"
+      },
+      "minTurns": {
+        "description": "同日覆写所需轮数",
+        "type": "int",
+        "default": 10,
+        "slider": {
+          "min": 1,
+          "max": 100,
+          "step": 1
+        }
+      },
+      "minGapHours": {
+        "description": "同日覆写最小间隔（小时）",
+        "type": "int",
+        "default": 6,
+        "slider": {
+          "min": 0,
+          "max": 72,
+          "step": 1
+        }
+      },
+      "max_chars": {
+        "description": "日记字数上限",
+        "type": "int",
+        "default": 800,
+        "slider": {
+          "min": 100,
+          "max": 2000,
+          "step": 50
+        },
+        "hint": "只设上限，不设下限：写得短也照收，超过就按句子截断。"
+      }
+    }
+  },
+  "headpat": {
+    "description": "摸摸头加成",
+    "type": "object",
+    "items": {
+      "valence": {
+        "description": "心情加成",
+        "type": "int",
+        "default": 12,
+        "slider": {
+          "min": 0,
+          "max": 50,
+          "step": 1
+        }
+      },
+      "affinity": {
+        "description": "亲近加成",
+        "type": "int",
+        "default": 12,
+        "slider": {
+          "min": 0,
+          "max": 50,
+          "step": 1
+        }
+      },
+      "stress": {
+        "description": "压力变化",
+        "type": "int",
+        "default": -10,
+        "slider": {
+          "min": -50,
+          "max": 0,
+          "step": 1
+        }
+      }
+    }
+  },
+  "integrations": {
+    "description": "与其它插件的联动（改完无需重载）",
+    "type": "object",
+    "items": {
+      "expose_state": {
+        "description": "允许别的插件读取心情状态",
+        "type": "bool",
+        "default": true
+      },
+      "meme_bridge": {
+        "description": "情绪表情包插件按心情选图（mood_meme）",
+        "type": "bool",
+        "default": true
+      },
+      "tts_bridge": {
+        "description": "TTS 情绪路由按心情选音色",
+        "type": "bool",
+        "default": true
+      },
+      "diary_to_memory": {
+        "description": "日记写进长期记忆（LivingMemory）",
+        "type": "bool",
+        "default": true
+      },
+      "diary_memory_importance": {
+        "description": "日记记忆的重要度",
+        "type": "float",
+        "default": 0.55,
+        "slider": {
+          "min": 0,
+          "max": 1,
+          "step": 0.05
+        }
+      },
+      "diary_memory_prefix": {
+        "description": "日记记忆的前缀",
+        "type": "string",
+        "default": "【心情日记】"
+      },
+      "diary_memory_session": {
+        "description": "写入的记忆作用域（留空则按 LivingMemory 当前策略）",
+        "type": "string",
+        "default": "livingmemory:global"
+      },
+      "diary_memory_persona": {
+        "description": "绑定的人格（留空则用当前对话人格）",
+        "type": "string",
+        "default": ""
+      }
+    }
+  },
+  "circadian": {
+    "description": "昼夜节律与疲劳",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "启用昼夜节律",
+        "type": "bool",
+        "default": true,
+        "hint": "夜间把基线压低、白天恢复；连聊太久会疲劳。"
+      },
+      "night_start": {
+        "description": "夜间开始",
+        "type": "string",
+        "default": "23:00"
+      },
+      "night_end": {
+        "description": "夜间结束",
+        "type": "string",
+        "default": "06:30"
+      },
+      "night_arousal": {
+        "description": "夜间劲儿偏移",
+        "type": "int",
+        "default": -8,
+        "slider": {
+          "min": -30,
+          "max": 10,
+          "step": 1
+        }
+      },
+      "night_engagement": {
+        "description": "夜间投入偏移",
+        "type": "int",
+        "default": -6,
+        "slider": {
+          "min": -30,
+          "max": 10,
+          "step": 1
+        }
+      },
+      "night_stress": {
+        "description": "夜间压力偏移",
+        "type": "int",
+        "default": 3,
+        "slider": {
+          "min": -10,
+          "max": 20,
+          "step": 1
+        }
+      },
+      "fatigue_turns": {
+        "description": "疲劳累积轮数",
+        "type": "int",
+        "default": 120,
+        "slider": {
+          "min": 20,
+          "max": 600,
+          "step": 10
+        },
+        "hint": "当天记录条数达到这个量时疲劳偏移拉满。"
+      },
+      "fatigue_engagement": {
+        "description": "疲劳投入偏移",
+        "type": "int",
+        "default": -6,
+        "slider": {
+          "min": -30,
+          "max": 10,
+          "step": 1
+        }
+      },
+      "fatigue_arousal": {
+        "description": "疲劳劲儿偏移",
+        "type": "int",
+        "default": -4,
+        "slider": {
+          "min": -30,
+          "max": 10,
+          "step": 1
+        }
+      },
+      "fatigue_stress": {
+        "description": "疲劳压力偏移",
+        "type": "int",
+        "default": 3,
+        "slider": {
+          "min": -10,
+          "max": 20,
+          "step": 1
+        }
+      }
+    }
+  }
+}

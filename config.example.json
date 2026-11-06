@@ -1,0 +1,123 @@
+{
+  "enabled": true,
+  "display": true,
+  "per_session": false,
+  "high_precision": false,
+  "react_to_tools": false,
+  "hard_temperature": false,
+  "baseline": 55,
+  "smoothing": {
+    "max_step": 20,
+    "ignore_below": 2,
+    "daily_cap_per_source": 6,
+    "per_turn_dim_cap": 60,
+    "tool_ok_cap": 3,
+    "pull_to_baseline": 0.02,
+    "headroom_scale": true
+  },
+  "decay": {
+    "default_half_life_hours": 6,
+    "stress_half_life_minutes": 45,
+    "mode": "exponential"
+  },
+  "weights": {
+    "user_praise": {
+      "valence": 21.0,
+      "affinity": 18.0,
+      "dominance": 6.0
+    },
+    "user_reject": {
+      "valence": -6.0,
+      "dominance": -4.5,
+      "stress": 3.0
+    },
+    "tool_ok": {
+      "dominance": 3.0,
+      "stress": 0.0
+    },
+    "tool_error": {
+      "stress": 0.0,
+      "valence": -3.0
+    },
+    "tool_error_x3": {
+      "stress": 0.0,
+      "valence": -6.0,
+      "dominance": -4.5
+    },
+    "retry": {
+      "stress": 3.0,
+      "engagement": -1.5
+    },
+    "clarify": {
+      "dominance": -3.0,
+      "engagement": 1.5
+    },
+    "short_msgs": {
+      "engagement": -3.0
+    },
+    "ctx_pressure": {
+      "stress": 0.0
+    },
+    "dense_turns": {
+      "arousal": 4.5,
+      "engagement": 4.5
+    },
+    "long_idle": {
+      "arousal": -7.5,
+      "stress": -4.5
+    }
+  },
+  "injection": {
+    "enabled": true,
+    "max_lines": 3,
+    "style_only": true
+  },
+  "llm": {
+    "timeoutMs": 3000,
+    "cacheSize": 100
+  },
+  "rhythm": {
+    "enabled": false
+  },
+  "storage": {
+    "domain": "mood",
+    "keep_records": 2000
+  },
+  "diary": {
+    "enabled": true,
+    "time": "22:00",
+    "minTurns": 10,
+    "minGapHours": 6,
+    "lastTimeModifiedAt": 1793521739.5195434,
+    "max_chars": 800
+  },
+  "headpat": {
+    "affinity": 12,
+    "stress": -10,
+    "valence": 12
+  },
+  "context_limit_tokens": 128000,
+  "integrations": {
+    "expose_state": true,
+    "meme_bridge": true,
+    "tts_bridge": true,
+    "diary_to_memory": true,
+    "diary_memory_importance": 0.55,
+    "diary_memory_prefix": "【心情日记】",
+    "diary_memory_session": "livingmemory:global",
+    "diary_memory_persona": ""
+  },
+  "stress_baseline": 55,
+  "circadian": {
+    "enabled": true,
+    "night_start": "23:00",
+    "night_end": "06:30",
+    "night_arousal": -8,
+    "night_engagement": -6,
+    "night_stress": 3,
+    "fatigue_turns": 120,
+    "fatigue_engagement": -6,
+    "fatigue_arousal": -4,
+    "fatigue_stress": 3
+  }
+}

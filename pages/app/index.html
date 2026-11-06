@@ -1,0 +1,976 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>心情引擎</title>
+<style>
+  :root {
+    --glass: #191a1e;
+    --alpha: 0.78;
+    --blur: 12px;
+    --border: #3a3d46;
+    --fg: #e9ecf2;
+    --fg-dim: #9aa2b1;
+    --accent: #7fd4ff;
+    --danger: #ff8fa3;
+    --ok: #9be6a0;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--page-bg, #0c0e13); min-height: 100%; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    background:
+      radial-gradient(900px 500px at 12% -10%, rgba(127, 212, 255, .18), transparent 60%),
+      radial-gradient(800px 520px at 100% 0%, rgba(160, 120, 255, .14), transparent 55%),
+      #0c0e13;
+    color: var(--fg);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 14px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px 20px 42px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  header h1 { font-size: 20px; margin: 0; letter-spacing: .5px; }
+  .tag {
+    font-size: 11px; padding: 3px 8px; border-radius: 999px;
+    border: 1px solid rgba(127, 212, 255, .4); color: var(--accent);
+    background: rgba(127, 212, 255, .08);
+  }
+  .spacer { flex: 1; }
+  button, select, input {
+    font: inherit; color: var(--fg);
+    background: var(--btn);
+    border: 1px solid var(--line);
+    border-radius: 10px; padding: 7px 11px; cursor: pointer;
+  }
+  button:hover { filter: brightness(1.22); }
+  button:active { transform: translateY(1px); }
+  button.primary { border-color: rgba(127, 212, 255, .5); background: rgba(127, 212, 255, .14); }
+  button.ghost { background: transparent; }
+  .grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 16px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: color-mix(in srgb, var(--glass) calc(var(--alpha) * 100%), transparent);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(var(--blur));
+    padding: 16px 18px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .28);
+  }
+  .card h2 {
+    font-size: 13px; font-weight: 600; color: var(--fg); opacity: .72;
+    margin: 0 0 12px; letter-spacing: 1px; text-transform: uppercase;
+  }
+  .emotion { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .emotion .name { font-size: 30px; font-weight: 700; letter-spacing: 2px; }
+  .emotion .action { color: var(--fg-dim); font-size: 13px; }
+  .hint-line { margin-top: 8px; color: var(--fg-dim); font-size: 12px; line-height: 1.7; }
+  .dims { display: grid; gap: 9px; margin-top: 8px; }
+  .dim { display: grid; grid-template-columns: 58px 1fr 50px 34px; align-items: center; gap: 8px; }
+  .dim .nm { font-size: 12.5px; color: var(--fg); text-align: right; white-space: nowrap; }
+  .dim .nm i { font-style: normal; color: var(--faint); font-size: 13px; margin-left: 2px; cursor: help; }
+  .dim .track { height: 10px; border-radius: 5px; background: var(--track); overflow: hidden; display: block; }
+  .dim .fill { display: block; height: 100%; border-radius: 5px; transition: width .5s cubic-bezier(.22, 1, .36, 1); }
+  .dim .num { font-size: 13px; font-weight: 600; text-align: right; color: var(--fg); font-variant-numeric: tabular-nums; }
+  .dim .num small { font-size: 10.5px; font-weight: 500; color: var(--faint); margin-left: 1px; }
+  .dim .spark { width: 30px; height: 12px; display: block; color: var(--fg-dim); opacity: .62; }
+  .interact { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .interact button { flex: 1 1 30%; min-width: 96px; }
+  .interact small { display: block; color: var(--fg-dim); font-size: 11px; margin-top: 2px; }
+  .timeline { display: grid; gap: 8px; max-height: 340px; overflow: auto; padding-right: 4px; }
+  .row {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 9px 10px; border-radius: 12px; background: var(--chip);
+    border: 1px solid var(--line);
+  }
+  .row .lab { font-weight: 600; min-width: 62px; }
+    .row .where { display: inline-block; font-size: 10px; font-weight: 600; line-height: 15px; padding: 0 5px; margin-right: 5px; border-radius: 4px; color: var(--fg-dim); background: var(--btn); vertical-align: 1px; }
+    .row .where.priv { color: var(--accent); background: rgba(99,166,255,.16); }
+  .row .deltas { color: var(--fg-dim); font-size: 11.5px; line-height: 1.6; }
+  .row .ts { margin-left: auto; color: var(--fg-dim); font-size: 11px; white-space: nowrap; }
+  .diary-grid { display: grid; gap: 8px; max-height: 240px; overflow: auto; }
+  .diary-item {
+    text-align: left; padding: 10px 12px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--chip);
+    line-height: 1.6;
+  }
+  .diary-item .d { color: var(--accent); font-size: 12px; }
+  .diary-item .p { color: var(--fg-dim); font-size: 12px; }
+  .badge {
+    display: inline-block; min-width: 17px; padding: 0 5px; margin-left: 6px;
+    font-size: 10px; line-height: 17px; text-align: center; border-radius: 999px;
+    background: var(--danger); color: #201014;
+  }
+  .overlay {
+    position: fixed; inset: 0; display: none; z-index: 40;
+    background: rgba(6, 8, 12, .72); backdrop-filter: blur(6px);
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .overlay.open { display: flex; }
+  .book {
+    width: min(760px, 96vw); height: min(560px, 88vh);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    background: #f6efe2; color: #3a2f24; border-radius: 10px;
+    box-shadow: 0 40px 80px rgba(0, 0, 0, .55); overflow: hidden;
+    perspective: 1600px;
+  }
+  .page {
+    padding: 26px 26px 20px; overflow: auto; font-family: Georgia, "Songti SC", serif;
+    line-height: 1.95; font-size: 14.5px; position: relative;
+    background:
+      repeating-linear-gradient(#f6efe2, #f6efe2 27px, rgba(120, 90, 60, .10) 28px);
+  }
+  .page.left { border-right: 1px solid rgba(120, 90, 60, .18); box-shadow: inset -18px 0 24px -18px rgba(90, 60, 30, .45); }
+  .page h3 { margin: 0 0 10px; font-size: 15px; letter-spacing: 1px; }
+  .page .body { white-space: pre-wrap; }
+  .page.flip { animation: flip .5s ease; transform-origin: left center; }
+  @keyframes flip { from { transform: rotateY(-38deg); opacity: .3; } to { transform: rotateY(0); opacity: 1; } }
+  .book-tools {
+    position: absolute; inset: auto 0 0 0; display: flex; gap: 8px; justify-content: center;
+    padding: 10px; background: linear-gradient(rgba(6, 8, 12, 0), rgba(6, 8, 12, .65));
+  }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 94vw); z-index: 50;
+    background: var(--drawer-bg, #12151c); color: var(--fg);
+    border-left: 1px solid var(--line, rgba(255,255,255,.12));
+    transform: translateX(102%); transition: transform .28s ease; overflow: auto; padding: 20px;
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer h2 { font-size: 15px; margin: 0 0 16px; color: var(--fg); }
+  .drawer .field label, .drawer .field small { color: var(--fg-dim); }
+  .field { display: grid; gap: 6px; margin-bottom: 14px; }
+  .field label { font-size: 12px; color: var(--fg-dim); }
+  .field .row2 { display: flex; gap: 8px; align-items: center; }
+    .row3 { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .row3 label { font-size: 12px; color: var(--fg-dim); display: flex; align-items: center; gap: 6px; }
+    .row3 input[type=number], .row3 input[type=time] { width: 76px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--btn); color: var(--fg); }
+  .field small { color: var(--fg-dim); font-size: 11px; line-height: 1.6; }
+  .themes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .theme {
+    height: 44px; border-radius: 10px; border: 2px solid transparent; cursor: pointer;
+    display: flex; align-items: flex-end; justify-content: center; font-size: 10px;
+    padding-bottom: 4px; color: rgba(0, 0, 0, .55); background-clip: padding-box;
+  }
+  .theme.active { border-color: var(--accent); }
+  .banner { display: none; margin: 0 0 12px; padding: 10px 14px; border-radius: 10px;
+      background: rgba(255, 152, 0, .14); border: 1px solid rgba(255, 152, 0, .45); color: #ffcc80; font-size: 13px; }
+    .banner.show { display: block; }
+    .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+    background: rgba(20, 24, 32, .96); border: 1px solid rgba(255, 255, 255, .14);
+    padding: 10px 16px; border-radius: 12px; opacity: 0; pointer-events: none;
+    transition: all .24s ease; z-index: 60; font-size: 13px;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .empty { color: var(--fg-dim); font-size: 12.5px; padding: 10px 2px; }
+  .switch { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--fg); }
+  .switch input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .radar { width: 200px; height: 200px; display: block; margin: 8px auto 6px; }
+  .radar .grid { fill: none; stroke: var(--grid); stroke-width: 1; }
+  .radar .axis { stroke: var(--grid); stroke-width: 1; }
+  html[data-mode="light"] .card { box-shadow: 0 12px 30px rgba(40, 60, 90, .12); }
+  html[data-mode="light"] .radar .poly { fill-opacity: .18; }
+  .radar .lbl { font-size: 10px; fill: var(--fg-dim); }
+  .radar .poly { fill-opacity: .26; stroke-width: 2; stroke-linejoin: round; }
+  .radar .dot { fill: #fff; stroke-width: 1.4; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+  .chip {
+    font-size: 11.5px; padding: 3px 8px; border-radius: 999px;
+    background: var(--chip, rgba(255,255,255,.07)); color: var(--fg-dim);
+    border: 1px solid var(--line, rgba(255,255,255,.18));
+  }
+  .foot { margin-top: 10px; font-size: 11.5px; color: var(--fg-dim); text-align: right; }
+  .dim .spark { display: block; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🐟 心情引擎</h1>
+    <span class="tag">模拟情绪 · 不是真实感受</span>
+    <span class="spacer"></span>
+    <button class="ghost" id="btnTheme">🎨 主题</button>
+    <button class="ghost" id="btnSet">⚙ 设置</button>
+    <button class="primary" id="btnRefresh">↻ 刷新</button>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <h2>此刻</h2>
+      <div class="emotion">
+        <span class="name" id="emoName">—</span>
+        <span class="action" id="emoAction"></span>
+      </div>
+      <div class="hint-line" id="emoHint"></div>
+      <svg class="radar" id="radar" viewBox="-100 -100 200 200" aria-hidden="true"></svg>
+      <div class="chips" id="chips"></div>
+      <div class="dims" id="dims"></div>
+      <div class="interact">
+        <button data-act="headpat">🫳 摸摸头<small id="cntHeadpat">剩 5 次</small></button>
+        <button data-act="feed">🍙 投喂<small id="cntFeed">剩 5 次</small></button>
+        <button data-act="tease">🪶 逗她<small id="cntTease">剩 5 次</small></button>
+      </div>
+      <div class="foot" id="foot">尚未更新</div>
+    </section>
+
+    <section class="card">
+      <h2>时间轴</h2>
+      <div class="timeline" id="timeline"><div class="empty">还没有记录。</div></div>
+    </section>
+
+    <section class="card" style="grid-column: 1 / -1;">
+      <h2>日记本 <span class="badge" id="unread" style="display:none">0</span></h2>
+      <div class="diary-grid" id="diaryList"><div class="empty">还没有日记。</div></div>
+    </section>
+  </div>
+</div>
+
+<!-- 日记本 -->
+<div class="overlay" id="bookOverlay">
+  <div class="book">
+    <div class="page left" id="pageLeft"></div>
+    <div class="page right" id="pageRight"></div>
+    <div class="book-tools">
+      <button id="prevPage" title="前一天">‹</button>
+      <span id="pageNo" style="flex:1;text-align:center;font-size:12px;color:#7a6a58">0 / 0</span>
+      <button id="nextPage" title="后一天">›</button>
+      <button class="ghost" id="closeBook" title="合上">×</button>
+    </div>
+  </div>
+</div>
+
+<!-- 设置抽屉 -->
+<aside class="drawer" id="drawer">
+  <h2>设置 · 日记&情绪</h2>
+
+  <div class="field">
+    <label>总开关</label>
+    <div class="row2">
+      <label class="switch"><input type="checkbox" id="cfgEnabled" /> 启用心情引擎</label>
+    </div>
+    <small>关掉后不订阅事件、不写文件。</small>
+  </div>
+
+  <div class="field">
+    <label>显示模式</label>
+    <select id="cfgDisplay">
+      <option value="false">关闭</option>
+      <option value="true">数值</option>
+      <option value="words">数值 + 低/中/高</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>六维基线</label>
+    <div class="row2"><input type="range" id="cfgBaseline" min="0" max="100" step="1" style="flex:1" /><span id="cfgBaselineVal">55</span></div>
+  </div>
+
+  <div class="field">
+    <label>日记</label>
+    <div class="row2">
+      <label class="switch"><input type="checkbox" id="cfgDiary" /> 自动写</label>
+      <input type="time" id="cfgDiaryTime" style="flex:1" />
+    </div>
+    <small>每天只能改一次时间；今天已写或已过点则不允许改。</small>
+  </div>
+
+  <div class="field">
+    <label>互动加成（摸摸头）</label>
+    <div class="row2" style="gap:6px">
+      <label style="flex:1;font-size:12px">心情<input type="number" id="cfgHpValence" min="0" max="50" step="1" style="width:100%" /></label>
+      <label style="flex:1;font-size:12px">亲近<input type="number" id="cfgHpAffinity" min="0" max="50" step="1" style="width:100%" /></label>
+      <label style="flex:1;font-size:12px">压力<input type="number" id="cfgHpStress" min="-50" max="0" step="1" style="width:100%" /></label>
+    </div>
+    <small>原版三档：心情 0~50、亲近 0~50、压力 −50~0。</small>
+  </div>
+
+  <div class="field">
+    <label>语气与节奏</label>
+    <div class="row2">
+      <label class="switch"><input type="checkbox" id="cfgInject" /> 注入语气</label>
+      <label class="switch"><input type="checkbox" id="cfgRhythm" /> 节奏句</label>
+    </div>
+    <div class="row2" style="margin-top:8px">
+      <label class="switch"><input type="checkbox" id="cfgHighPrec" /> 高精度判定</label>
+      <label class="switch"><input type="checkbox" id="cfgHard" /> 低落硬指令</label>
+    </div>
+    <div class="row2" style="margin-top:8px">
+      <label class="switch"><input type="checkbox" id="cfgTools" /> 工具报错影响心情</label>
+    </div>
+    <small>高精度会额外调一次模型（有 token 成本）；低落硬指令在 AstrBot 里是降级实现，不改采样温度。工具报错默认不参与心情——机器的事不该让她闹情绪。</small>
+  </div>
+
+  <div class="field">
+    <label>昼夜节律与疲劳</label>
+    <div class="row2">
+      <label class="switch"><input type="checkbox" id="cfgCirc" /> 启用昼夜节律</label>
+      <label class="switch"><input type="checkbox" id="cfgHeadroom" /> 边际递减</label>
+    </div>
+    <div class="row3" style="margin-top:8px">
+      <label>夜间起 <input type="time" id="cfgNightStart" value="23:00" /></label>
+      <label>夜间止 <input type="time" id="cfgNightEnd" value="06:30" /></label>
+    </div>
+    <div class="row3" style="margin-top:8px">
+      <label>劲儿 <input type="number" id="cfgNightArousal" min="-30" max="10" step="1" /></label>
+      <label>投入 <input type="number" id="cfgNightEngagement" min="-30" max="10" step="1" /></label>
+      <label>压力 <input type="number" id="cfgNightStress" min="-10" max="20" step="1" /></label>
+    </div>
+    <div class="row3" style="margin-top:8px">
+      <label>疲劳轮数 <input type="number" id="cfgFatigueTurns" min="20" max="600" step="10" /></label>
+      <label>疲劳投入 <input type="number" id="cfgFatigueEngagement" min="-30" max="10" step="1" /></label>
+      <label>疲劳劲儿 <input type="number" id="cfgFatigueArousal" min="-30" max="10" step="1" /></label>
+      <label>疲劳压力 <input type="number" id="cfgFatigueStress" min="-10" max="20" step="1" /></label>
+    </div>
+    <div class="row3" style="margin-top:8px">
+      <label style="flex:1">每轮回正 <input type="range" id="cfgPull" min="0" max="0.1" step="0.005" style="flex:1" /><span id="cfgPullVal" style="width:46px;text-align:right">0.020</span></label>
+    </div>
+    <small>夜间偏移作用在基线上：23:00 后她的「劲儿 / 投入」慢慢降、压力略升；当天记录达到「疲劳轮数」后叠加疲劳偏移。回正 0.02 = 每轮向基线拉近 2%。</small>
+  </div>
+
+  <div class="field">
+    <label>主题</label>
+    <div class="themes" id="themes"></div>
+  </div>
+
+  <div class="field">
+    <label>外观细节</label>
+    <div class="row2"><span style="font-size:12px;color:var(--fg-dim);width:70px">透明</span><input type="range" id="uiAlpha" min="0.3" max="1" step="0.02" style="flex:1" /></div>
+    <div class="row2" style="margin-top:6px"><span style="font-size:12px;color:var(--fg-dim);width:70px">雾化</span><input type="range" id="uiBlur" min="0" max="30" step="1" style="flex:1" /></div>
+    <div class="row2" style="margin-top:6px"><span style="font-size:12px;color:var(--fg-dim);width:70px">时间轴</span><input type="range" id="uiTimeline" min="4" max="30" step="1" style="flex:1" /></div>
+  </div>
+
+  <div class="field">
+    <div class="row2">
+      <button class="primary" id="btnSave" style="flex:1">保存设置</button>
+      <button class="ghost" id="btnCloseDrawer">关闭</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>调试</label>
+    <div class="row2">
+      <button id="btnDiaryNow" style="flex:1">立刻写日记</button>
+      <button id="btnSeed" style="flex:1">生成测试日记</button>
+      <button id="btnReset">心情归零</button>
+    </div>
+    <small>“立刻写日记”会消耗一次模型调用。</small>
+  </div>
+</aside>
+
+<div class="toast" id="toast"></div>
+  <div class="banner" id="banner"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  const DIMS = [
+    ["valence", "心情", "效价：整体愉快程度，越高越正面", "#2f6df6", "#7fb5ff"],
+    ["arousal", "劲儿", "唤醒度：活跃或紧张程度", "#7b3ff2", "#c39bff"],
+    ["dominance", "底气", "掌控感：事在手里的感觉", "#1a5fd0", "#63a6ff"],
+    ["engagement", "投入", "投入度：愿意钻多深", "#0f9d63", "#5fe0b0"],
+    ["stress", "压力", "压力：被逼出来的紧绷", "#c93a3a", "#ff8a8a"],
+    ["affinity", "亲近", "亲密度：距离感，越高越近", "#c98a10", "#ffd166"]
+  ];
+  const DIM_CN = Object.fromEntries(DIMS.map(d => [d[0], d[1]]));
+  const LABEL_COLOR = "#63a6ff";
+  let showWords = false;
+
+  const THEMES = [
+    { id: "deep",   name: "默认深海", mode: "dark",  glass: "#191a1e", alpha: .78, blur: 12, borderPct: 30 },
+    { id: "ice",    name: "清透冰蓝", mode: "dark",  glass: "#0f2a3f", alpha: .58, blur: 20, borderPct: 46 },
+    { id: "peach",  name: "蜜桃橘",   mode: "light", glass: "#ffcaa3", alpha: .90, blur: 12, borderPct: 22 },
+    { id: "mono",   name: "极简黑白", mode: "light", glass: "#ffffff", alpha: .96, blur: 6,  borderPct: 12 },
+    { id: "mint",   name: "薄荷绿",   mode: "light", glass: "#d9f2e4", alpha: .90, blur: 10, borderPct: 22 },
+    { id: "sakura", name: "樱花粉黛", mode: "light", glass: "#f7dfe6", alpha: .86, blur: 14, borderPct: 24 },
+    { id: "taro",   name: "香芋紫",   mode: "light", glass: "#d8bfd8", alpha: .90, blur: 14, borderPct: 20 },
+    { id: "tea",    name: "焦糖茶",   mode: "light", glass: "#e6d2b6", alpha: .92, blur: 8,  borderPct: 18 },
+    { id: "aqua",   name: "淡青蓝",   mode: "light", glass: "#cfeef5", alpha: .90, blur: 12, borderPct: 22 }
+  ];
+
+  const $ = id => document.getElementById(id);
+
+  // iframe 是 sandbox（opaque origin），直接访问 localStorage 会抛 SecurityError
+  const LS = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { } }
+  };
+  // 宿主桥是页面脚本之后注入的 -> 惰性取，别在顶部捕获
+  const bridgeApi = () => window.AstrBotPluginView || window.AstrBotPluginPage || null;
+  async function waitBridge(ms) {
+    const t0 = Date.now();
+    while (!bridgeApi() && Date.now() - t0 < (ms || 1500)) {
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    return bridgeApi();
+  }
+
+  let state = null;
+  let cfg = null;
+  let diary = [];
+  let ui = { theme: "deep", alpha: null, blur: null, timeline: 12, readCount: 0, history: [] };
+
+  function toast(msg) {
+    const el = $("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove("show"), 2200);
+  }
+
+  const BRIDGE_CHANNEL = "astrbot-plugin-page";
+  const bridgePending = new Map();
+  let bridgeSeq = 0;
+
+  function embedded() {
+    try { return window.parent && window.parent !== window; } catch (e) { return false; }
+  }
+
+  function bridgeReady() {
+    if (!embedded()) return;
+    try { window.parent.postMessage({ channel: BRIDGE_CHANNEL, kind: "ready" }, "*"); } catch (e) { }
+  }
+
+  window.addEventListener("message", function (ev) {
+    const d = ev.data;
+    if (!d || d.channel !== BRIDGE_CHANNEL || d.kind !== "response") return;
+    const slot = bridgePending.get(d.requestId);
+    if (!slot) return;
+    bridgePending.delete(d.requestId);
+    clearTimeout(slot.timer);
+    if (d.ok) slot.resolve(d.data);
+    else slot.reject(new Error(d.error || "面板桥接返回失败"));
+  });
+
+  function bridgeRequest(endpoint, body) {
+    return new Promise(function (resolve, reject) {
+      if (!embedded()) { reject(new Error("不在面板 iframe 内")); return; }
+      const requestId = "mood-" + Date.now() + "-" + (++bridgeSeq);
+      const timer = setTimeout(function () {
+        bridgePending.delete(requestId);
+        reject(new Error("面板桥接超时"));
+      }, 15000);
+      bridgePending.set(requestId, { resolve: resolve, reject: reject, timer: timer });
+      const msg = { channel: BRIDGE_CHANNEL, kind: "request", requestId: requestId,
+                    endpoint: endpoint, action: body === undefined ? "api:get" : "api:post" };
+      if (body !== undefined) msg.body = body;
+      try { window.parent.postMessage(msg, "*"); } catch (e) {
+        clearTimeout(timer); bridgePending.delete(requestId); reject(e);
+      }
+    });
+  }
+
+  function authToken() {
+    try {
+      for (const k of ["token", "access_token", "Authorization", "astrbot_token"]) {
+        const v = LS.get(k) || (function () { try { return sessionStorage.getItem(k); } catch (e) { return null; } })();
+        if (v) return String(v).replace(/^Bearer\s+/i, "");
+      }
+    } catch (e) { /* 无痕 / 跨源 */ }
+    return "";
+  }
+
+  function showBanner(msg) {
+    const el = $("banner");
+    if (!el) { toast(msg); return; }
+    el.textContent = msg;
+    el.classList.add("show");
+  }
+
+  async function api(endpoint, body) {
+    const view = await waitBridge();
+    if (view && typeof view.apiGet === "function") {
+      try {
+        const r = body === undefined ? await view.apiGet(endpoint) : await view.apiPost(endpoint, body);
+        if (r && typeof r === "object" && r.ok !== false) return r.data !== undefined ? r.data : r;
+      } catch (e) { /* 退回直连（带上面板 token） */ }
+    }
+    try {
+      return await bridgeRequest(endpoint, body);
+    } catch (e) { /* 不在 iframe 或桥接失败，再走直连 */ }
+    const url = "/api/v1/plugins/extensions/astrbot_plugin_mood/" + endpoint;
+    const headers = { "Content-Type": "application/json" };
+    const tk = authToken();
+    if (tk) headers["Authorization"] = "Bearer " + tk;
+    const opt = { credentials: "include", headers };
+    if (body !== undefined) { opt.method = "POST"; opt.body = JSON.stringify(body); }
+    const r = await fetch(url, opt);
+    if (r.status === 401 || r.status === 403) throw new Error("没有面板登录凭证，请从 AstrBot 面板的插件卡片进入");
+    const data = await r.json();
+    return data && data.data !== undefined ? data.data : data;
+  }
+
+  function fmtTime(ts) {
+    const d = new Date((ts || 0) * 1000);
+    const p = n => String(n).padStart(2, "0");
+    return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  function applyTheme(t, opts) {
+    const root = document.documentElement.style;
+    const dark = t.mode === "dark";
+    document.documentElement.dataset.mode = dark ? "dark" : "light";
+    document.documentElement.style.setProperty("--page-bg", dark ? "#0c0e13" : "#eef1f6");
+    document.documentElement.style.setProperty("--drawer-bg", dark ? "rgba(18,21,28,.985)" : "rgba(252,253,255,.985)");
+    const edge = dark ? `rgba(255,255,255,${(t.borderPct || 30) / 100})` : `rgba(0,0,0,${(t.borderPct || 22) / 100})`;
+    root.setProperty("--glass", t.glass);
+    root.setProperty("--alpha", String(opts.alpha));
+    root.setProperty("--blur", opts.blur + "px");
+    root.setProperty("--edge", edge);
+    root.setProperty("--border", edge);
+    root.setProperty("--fg", dark ? "#f6f7fa" : "#0c0f14");
+    root.setProperty("--fg-dim", dark ? "rgba(246,247,250,.78)" : "rgba(12,15,20,.82)");
+    root.setProperty("--faint", dark ? "rgba(246,247,250,.52)" : "rgba(12,15,20,.58)");
+    root.setProperty("--track", dark ? "rgba(0,0,0,.55)" : "rgba(10,14,22,.14)");
+    root.setProperty("--line", dark ? "rgba(255,255,255,.18)" : "rgba(0,0,0,.18)");
+    root.setProperty("--grid", dark ? "rgba(255,255,255,.16)" : "rgba(0,0,0,.24)");
+    root.setProperty("--btn", dark ? "rgba(255,255,255,.10)" : "rgba(0,0,0,.07)");
+    root.setProperty("--chip", dark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.055)");
+    root.setProperty("--accent", dark ? "#63a6ff" : "#1a5fd0");
+    t.accent = dark ? "#63a6ff" : "#1a5fd0";
+    document.body.style.background = t.mode === "dark"
+      ? `radial-gradient(900px 500px at 12% -10%, ${hexA(t.accent, .18)}, transparent 60%), radial-gradient(800px 520px at 100% 0%, rgba(160,120,255,.14), transparent 55%), #0c0e13`
+      : `radial-gradient(900px 500px at 12% -10%, ${hexA(t.accent, .22)}, transparent 60%), radial-gradient(800px 520px at 100% 0%, rgba(160,120,255,.12), transparent 55%), #eef1f6`;
+    document.querySelectorAll(".theme").forEach(el => el.classList.toggle("active", el.dataset.id === t.id));
+  }
+
+  function hexA(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+  }
+
+  function wordsFor(v) { return v <= 33 ? "低" : (v <= 66 ? "中" : "高"); }
+
+  function sparkSvg(key) {
+    const rows = (ui.history || []).slice(0, 12).reverse();
+    const pts = [];
+    rows.forEach((r, i) => {
+      const st = (r && (r.state || r.dims)) || {};
+      if (typeof st[key] === "number") pts.push([i, st[key]]);
+    });
+    if (pts.length < 2) return "";
+    const W = 30, H = 12;
+    const x = i => 1 + i * ((W - 2) / Math.max(1, pts.length - 1));
+    const y = v => H - 1 - (Math.max(0, Math.min(100, v)) / 100) * (H - 2);
+    const d = pts.map(([i, v], k) => `${k ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+    return `<svg class="spark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/></svg>`;
+  }
+
+  function renderDims(values) {
+    const box = $("dims");
+    box.innerHTML = "";
+    for (const [key, cn, desc, c0, c1] of DIMS) {
+      const v = Math.round(Math.max(0, Math.min(100, values[key] ?? 55)));
+      const w = v === 0 ? 0 : Math.max(3, v);
+      const el = document.createElement("div");
+      el.className = "dim " + key;
+      el.innerHTML = `
+        <span class="nm">${cn}<i title="${desc}">?</i></span>
+        <span class="track"><i class="fill" style="width:${w}%;background:linear-gradient(90deg,${c0},${c1})"></i></span>
+        <span class="num">${v}${showWords ? `<small>${wordsFor(v)}</small>` : ""}</span>
+        ${sparkSvg(key) || "<span></span>"}`;
+      box.appendChild(el);
+    }
+  }
+
+  function renderRadar(values) {
+    const svg = $("radar");
+    if (!svg) return;
+    const R = 70;
+    const keys = DIMS.map(d => d[0]);
+    const pt = (i, r) => {
+      const a = -Math.PI / 2 + i * Math.PI / 3;
+      return [Math.cos(a) * r, Math.sin(a) * r];
+    };
+    let s = "";
+    for (const f of [0.25, 0.5, 0.75, 1]) {
+      const p = keys.map((_, i) => pt(i, R * f).map(n => n.toFixed(2)).join(",")).join(" ");
+      s += `<polygon class="grid" points="${p}" />`;
+    }
+    for (let i = 0; i < 6; i++) {
+      const [ax, ay] = pt(i, R);
+      s += `<line class="axis" x1="0" y1="0" x2="${ax.toFixed(2)}" y2="${ay.toFixed(2)}" />`;
+      const [lx, ly] = pt(i, R * 1.12 + 9);
+      const anchor = lx > 6 ? "start" : (lx < -6 ? "end" : "middle");
+      s += `<text class="lbl" x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" text-anchor="${anchor}" dominant-baseline="middle">${DIMS[i][1]}</text>`;
+    }
+    const pts = keys.map((k, i) => {
+      const v = Math.max(0, Math.min(100, values[k] ?? 55));
+      return pt(i, R * v / 100);
+    });
+    const poly = pts.map(q => q.map(n => n.toFixed(2)).join(",")).join(" ");
+    s += `<polygon class="poly" points="${poly}" fill="${LABEL_COLOR}" stroke="${LABEL_COLOR}" />`;
+    pts.forEach(([x, y]) => { s += `<circle class="dot" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3.4" stroke="${LABEL_COLOR}" />`; });
+    s += `<circle cx="0" cy="0" r="1.6" fill="${LABEL_COLOR}" opacity=".8" />`;
+    svg.innerHTML = s;
+  }
+
+  function renderChips(st) {
+    const box = $("chips");
+    if (!box) return;
+    const ds = (st && st.drivers) || [];
+    if (!ds.length) { box.innerHTML = ""; return; }
+    const items = ds.slice(0, 3).map(d => {
+      const note = d.note || d.key || "波动";
+      const conf = (d.confidence != null) ? " " + d.confidence : "";
+      return `<span class="chip">${escapeHtml(note + conf)}</span>`;
+    }).join("");
+    box.innerHTML = `<span class="chip" style="background:transparent;border-color:transparent;padding-left:0">原因：</span>${items}`;
+  }
+
+  function badgeStyle(v) {
+    const dark = document.documentElement.style.getPropertyValue("--fg").indexOf("#f6f7fa") >= 0;
+    if (v >= 60) {
+      return dark
+        ? { color: "#7fe9f0", background: "rgba(127,233,240,.16)", borderColor: "rgba(127,233,240,.42)" }
+        : { color: "#0b7285", background: "rgba(13,148,170,.12)", borderColor: "rgba(11,114,133,.34)" };
+    }
+    if (v <= 45) {
+      return dark
+        ? { color: "#8fb4ff", background: "rgba(122,162,255,.16)", borderColor: "rgba(122,162,255,.42)" }
+        : { color: "#1e4fbf", background: "rgba(30,79,191,.10)", borderColor: "rgba(30,79,191,.30)" };
+    }
+    return null;
+  }
+
+  function nowClock() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, "0");
+    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  function renderTimeline(rows) {
+    const box = $("timeline");
+    if (!rows || !rows.length) { box.innerHTML = '<div class="empty">还没有记录。</div>'; return; }
+    box.innerHTML = "";
+    for (const r of rows.slice(0, ui.timeline)) {
+      const deltas = Object.entries(r.delta || {})
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${DIM_CN[k] || k}${v > 0 ? "+" : ""}${v}`)
+        .join(" ");
+      const el = document.createElement("div");
+      el.className = "row";
+      const where = r.session_type === "group" ? '<span class="where">群</span>'
+        : r.session_type === "private" ? '<span class="where priv">私</span>' : "";
+      el.innerHTML = `
+        <span class="lab">${where}${r.label || "—"}</span>
+        <span class="deltas">${deltas || "（只是随时间的回落）"}${r.action ? `<br>${r.action}` : ""}</span>
+        <span class="ts">${fmtTime(r.ts)}</span>`;
+      box.appendChild(el);
+    }
+  }
+
+  function renderDiary(list) {
+    diary = list || [];
+    const box = $("diaryList");
+    const unread = Math.max(0, diary.length - ui.readCount);
+    const badge = $("unread");
+    badge.textContent = unread;
+    badge.style.display = unread > 0 ? "inline-block" : "none";
+    if (!diary.length) { box.innerHTML = '<div class="empty">还没有日记。</div>'; return; }
+    box.innerHTML = "";
+    diary.slice().reverse().forEach((d, idx) => {
+      const el = document.createElement("button");
+      el.className = "diary-item";
+      el.innerHTML = `<div class="d">${d.date || ""}${idx < unread ? ' <span class="badge">新</span>' : ""}</div>
+        <div class="p">${(d.text || "").split("\n").slice(1, 3).join(" ").slice(0, 64)}…</div>`;
+      el.onclick = () => openBook(diary.indexOf(d));
+      box.appendChild(el);
+    });
+    if (unread > 0) { ui.readCount = diary.length; }
+  }
+
+  let bookIdx = 0;
+  function openBook(idx) {
+    if (idx == null) idx = diary.length - 1;
+    bookIdx = Math.max(0, Math.min(diary.length - 1, idx));
+    $("bookOverlay").classList.add("open");
+    paintBook();
+  }
+  function paintBook() {
+    const d = diary[bookIdx];
+    if (!d) return;
+    const lines = (d.text || "").split("\n");
+    const head = lines[0] || "";
+    const body = lines.slice(1).join("\n").trim();
+    const half = Math.max(1, Math.ceil(body.length / 2));
+    $("pageLeft").innerHTML = `<h3>${head}</h3><div class="body">${escapeHtml(body.slice(0, half))}</div>`;
+    $("pageRight").innerHTML = `<h3>&nbsp;</h3><div class="body">${escapeHtml(body.slice(half))}</div>`;
+    $("pageRight").classList.remove("flip");
+    void $("pageRight").offsetWidth;
+    $("pageRight").classList.add("flip");
+    $("pageRight").scrollTop = 0;
+    const no = $("pageNo");
+    if (no) no.textContent = (bookIdx + 1) + " / " + diary.length;
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function renderInteract(interact) {
+    if (!interact) return;
+    const map = { headpat: "cntHeadpat", feed: "cntFeed", tease: "cntTease" };
+    for (const [act, elId] of Object.entries(map)) {
+      const info = (interact.counts || {})[act];
+      const left = 5 - (typeof info === "number" ? info : 0);
+      $(elId).textContent = left > 0 ? `剩 ${left} 次` : "今天到上限了";
+    }
+  }
+
+  async function loadState() {
+    try {
+      const data = await api("state");
+      state = data || {};
+      const dims = state.state || state.dims || {};
+      const v = Math.round(dims.valence ?? 55);
+      const nameEl = $("emoName");
+      nameEl.textContent = state.label || "—";
+      nameEl.style.cssText = "";
+      const bs = badgeStyle(v);
+      if (bs) Object.assign(nameEl.style, bs);
+      $("emoAction").textContent = state.action || "";
+      $("emoHint").textContent = state.hint || "（这一轮没有语气注入）";
+      ui.history = state.history || [];
+      renderDims(dims);
+      renderRadar(dims);
+      renderChips(state);
+      renderInteract(state.interact);
+      $("foot").textContent = "最后更新 " + nowClock();
+      const rows = ui.history.length ? ui.history : ((await api("history")).records || []);
+      renderTimeline(rows);
+    } catch (e) {
+      toast("读取状态失败：" + e.message);
+      showBanner("读不到心情数据：" + e.message);
+    }
+  }
+
+  async function loadConfig() {
+    try {
+      const data = await api("config");
+      cfg = (data && data.config) || data || {};
+      $("cfgEnabled").checked = !!cfg.enabled;
+      $("cfgDisplay").value = cfg.display === "words" ? "words" : (cfg.display ? "true" : "false");
+      const b = Math.round(cfg.baseline ?? 55);
+      $("cfgBaseline").value = b; $("cfgBaselineVal").textContent = b;
+      const diary = cfg.diary || {};
+      $("cfgDiary").checked = diary.enabled !== false;
+      $("cfgDiaryTime").value = diary.time || "22:00";
+      const hp = cfg.headpat || {};
+      $("cfgHpValence").value = hp.valence == null ? 12 : hp.valence;
+      $("cfgHpAffinity").value = hp.affinity == null ? 12 : hp.affinity;
+      $("cfgHpStress").value = hp.stress == null ? -10 : hp.stress;
+      $("cfgInject").checked = !!(cfg.injection || {}).enabled;
+      $("cfgRhythm").checked = !!(cfg.rhythm || {}).enabled;
+      $("cfgHighPrec").checked = !!cfg.high_precision;
+      $("cfgHard").checked = !!cfg.hard_temperature;
+      $("cfgTools").checked = !!cfg.react_to_tools;
+      const circ = cfg.circadian || {};
+      $("cfgCirc").checked = circ.enabled !== false;
+      $("cfgNightStart").value = circ.night_start || "23:00";
+      $("cfgNightEnd").value = circ.night_end || "06:30";
+      $("cfgNightArousal").value = circ.night_arousal == null ? -8 : circ.night_arousal;
+      $("cfgNightEngagement").value = circ.night_engagement == null ? -6 : circ.night_engagement;
+      $("cfgNightStress").value = circ.night_stress == null ? 3 : circ.night_stress;
+      $("cfgFatigueTurns").value = circ.fatigue_turns == null ? 120 : circ.fatigue_turns;
+      $("cfgFatigueEngagement").value = circ.fatigue_engagement == null ? -6 : circ.fatigue_engagement;
+      $("cfgFatigueArousal").value = circ.fatigue_arousal == null ? -4 : circ.fatigue_arousal;
+      $("cfgFatigueStress").value = circ.fatigue_stress == null ? 3 : circ.fatigue_stress;
+      const sm = cfg.smoothing || {};
+      $("cfgHeadroom").checked = sm.headroom_scale !== false;
+      const pull = Number(sm.pull_to_baseline == null ? 0.02 : sm.pull_to_baseline);
+      $("cfgPull").value = pull;
+      $("cfgPullVal").textContent = pull.toFixed(3);
+    } catch (e) { toast("读取配置失败：" + e.message); }
+  }
+
+  async function loadDiary() {
+    try {
+      const data = await api("diary");
+      const list = (data && data.entries) || (Array.isArray(data) ? data : []);
+      renderDiary(list);
+    } catch (e) { /* 日记读取失败不打扰 */ }
+  }
+
+  async function interact(act) {
+    try {
+      const res = await api("interact", { action: act });
+      const info = res && res.interact;
+      if (info) {
+        toast(info.applied ? `${info.note}（${DIM_CN[Object.keys(info.delta || {})[0]] || ""}）` : "今天已经摸够啦～");
+      }
+      await loadState();
+    } catch (e) { toast("互动失败：" + e.message); }
+  }
+
+  function openDrawer() { $("drawer").classList.add("open"); loadConfig(); }
+  function closeDrawer() { $("drawer").classList.remove("open"); }
+
+  async function saveConfig() {
+    const displayRaw = $("cfgDisplay").value;
+    const body = {
+      enabled: $("cfgEnabled").checked,
+      display: displayRaw === "words" ? "words" : (displayRaw === "true"),
+      baseline: Number($("cfgBaseline").value),
+      high_precision: $("cfgHighPrec").checked,
+      hard_temperature: $("cfgHard").checked,
+      react_to_tools: $("cfgTools").checked,
+      injection: { enabled: $("cfgInject").checked },
+      rhythm: { enabled: $("cfgRhythm").checked },
+      diary: { enabled: $("cfgDiary").checked, time: $("cfgDiaryTime").value || "22:00" },
+      headpat: {
+        valence: Number($("cfgHpValence").value),
+        affinity: Number($("cfgHpAffinity").value),
+        stress: Number($("cfgHpStress").value)
+      },
+      circadian: {
+        enabled: $("cfgCirc").checked,
+        night_start: $("cfgNightStart").value || "23:00",
+        night_end: $("cfgNightEnd").value || "06:30",
+        night_arousal: Number($("cfgNightArousal").value),
+        night_engagement: Number($("cfgNightEngagement").value),
+        night_stress: Number($("cfgNightStress").value),
+        fatigue_turns: Number($("cfgFatigueTurns").value),
+        fatigue_engagement: Number($("cfgFatigueEngagement").value),
+        fatigue_arousal: Number($("cfgFatigueArousal").value),
+        fatigue_stress: Number($("cfgFatigueStress").value)
+      },
+      smoothing: {
+        pull_to_baseline: Number($("cfgPull").value),
+        headroom_scale: $("cfgHeadroom").checked
+      }
+    };
+    try {
+      const res = await api("config/save", body);
+      if (res && res.ok === false) { toast(res.error || res.message || "保存被拒绝"); return; }
+      toast("已保存");
+      cfg = (res && res.config) || cfg;
+      await loadState();
+    } catch (e) { toast("保存失败：" + e.message); }
+  }
+
+  function buildThemes() {
+    const box = $("themes");
+    box.innerHTML = "";
+    THEMES.forEach(t => {
+      const el = document.createElement("div");
+      el.className = "theme";
+      el.dataset.id = t.id;
+      el.title = t.name;
+      const dark = t.mode === "dark";
+      const fgOn = dark ? "#f2f6ff" : "#0d1b22";
+      const tail = dark ? "rgba(10,12,18,.92)" : "rgba(255,255,255,.92)";
+      el.style.background = `linear-gradient(180deg, ${t.glass} 40%, ${tail})`;
+      el.style.color = fgOn;
+      el.textContent = t.name;
+      el.onclick = () => { ui.theme = t.id; applyTheme(t, currentUiOpts(t)); };
+      box.appendChild(el);
+    });
+  }
+
+  function currentUiOpts(t) {
+    return {
+      alpha: ui.alpha ?? t.alpha,
+      blur: ui.blur ?? t.blur
+    };
+  }
+
+  function applyCurrentTheme() {
+    const t = THEMES.find(x => x.id === ui.theme) || THEMES[0];
+    applyTheme(t, currentUiOpts(t));
+  }
+
+  function bindUiOptions() {
+    const saved = JSON.parse(LS.get("mood:ui") || "{}");
+    Object.assign(ui, saved);
+    $("uiAlpha").value = ui.alpha ?? 0.78;
+    $("uiBlur").value = ui.blur ?? 12;
+    $("uiTimeline").value = ui.timeline ?? 12;
+    const persist = () => LS.set("mood:ui", JSON.stringify(ui));
+    $("uiAlpha").oninput = e => { ui.alpha = Number(e.target.value); applyCurrentTheme(); persist(); };
+    $("uiBlur").oninput = e => { ui.blur = Number(e.target.value); applyCurrentTheme(); persist(); };
+    $("uiTimeline").oninput = e => { ui.timeline = Number(e.target.value); persist(); if (state) renderTimeline(state.history); };
+    $("btnTheme").onclick = () => { openDrawer(); setTimeout(() => $("themes").scrollIntoView({ behavior: "smooth", block: "center" }), 80); };
+    $("btnSet").onclick = openDrawer;
+    $("btnCloseDrawer").onclick = closeDrawer;
+    $("btnRefresh").onclick = () => { loadState(); loadDiary(); };
+    $("btnSave").onclick = saveConfig;
+    $("cfgBaseline").oninput = e => { $("cfgBaselineVal").textContent = e.target.value; };
+    document.querySelectorAll(".interact button").forEach(b => { b.onclick = () => interact(b.dataset.act); });
+    $("btnSeed").onclick = async () => {
+    try {
+      const r = await api("diary/seed", { days: 5 });
+      toast(r && r.created ? `已生成 ${r.created} 篇测试日记` : "生成失败");
+      await loadDiary();
+    } catch (e) { toast("生成失败：" + e.message); }
+  };
+
+  $("btnDiaryNow").onclick = async () => {
+      try { await api("diary/write", {}); toast("正在写日记…"); setTimeout(loadDiary, 2500); }
+      catch (e) { toast("写日记失败：" + e.message); }
+    };
+    $("btnReset").onclick = async () => {
+      try { await api("reset", {}); toast("已回到基线"); await loadState(); }
+      catch (e) { toast("重置失败：" + e.message); }
+    };
+    $("closeBook").onclick = () => $("bookOverlay").classList.remove("open");
+    let flipLock = 0;
+    $("prevPage").onclick = () => {
+      const t = Date.now(); if (t - flipLock < 420) return; flipLock = t;
+      if (bookIdx > 0) { bookIdx--; paintBook(); }
+    };
+    $("nextPage").onclick = () => {
+      const t = Date.now(); if (t - flipLock < 420) return; flipLock = t;
+      if (bookIdx < diary.length - 1) { bookIdx++; paintBook(); }
+    };
+    $("bookOverlay").onclick = e => { if (e.target === $("bookOverlay")) $("bookOverlay").classList.remove("open"); };
+  }
+
+  async function loadMode() {
+    try {
+      const m = await api("mode");
+      showWords = !!(m && m.display === "words");
+      if (state) renderDims(state.state || state.dims || {});
+    } catch (e) { /* 模块未启用时忽略 */ }
+  }
+
+  function safe(fn, label) {
+    try { fn(); } catch (e) {
+      console.warn("[mood] " + label + " failed", e);
+      showBanner("初始化" + label + "失败：" + e.message);
+    }
+  }
+
+  function boot() {
+    $("cfgPull").addEventListener("input", (e) => { $("cfgPullVal").textContent = Number(e.target.value).toFixed(3); });
+
+    try {
+      const themeParam = new URLSearchParams(location.search).get("theme");
+      if (themeParam && THEMES.some(t => t.id === themeParam)) ui.theme = themeParam;
+      if (new URLSearchParams(location.search).get("drawer") === "1") {
+        setTimeout(function () { try { openDrawer(); } catch (e) { const d = document.getElementById("drawer"); if (d) d.classList.add("open"); } }, 900);
+      }
+    } catch (e) { }
+    safe(() => { buildThemes(); bindUiOptions(); }, "界面");
+    safe(() => { applyCurrentTheme(); }, "主题");
+    safe(() => { loadMode(); }, "显示模式");
+    safe(() => { loadState(); }, "状态");
+    safe(() => { loadDiary(); }, "日记");
+    setInterval(() => { loadState(); }, 3000);
+    if (view && typeof view.ready === "function") view.ready().catch(() => {});
+  }
+
+  bridgeReady();
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+

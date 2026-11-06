@@ -1,0 +1,7 @@
+name: astrbot_plugin_mood
+display_name: 心情引擎
+desc: 六维心情状态机 + 昼夜节律与疲劳 + 29 个情绪词 + 每轮至多三行语气注入 + 每日日记 + 面板
+version: 2.0.0
+author: DSH
+repo: "https://github.com/manbo686/astrbot-plugin-bundle/tree/main/plugins/astrbot_plugin_mood"
+astrbot_version: ">=4.0.0"
